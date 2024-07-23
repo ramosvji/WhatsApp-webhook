@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: WhatsApp-webhook
+
+server:
+  port: 8080
+
+verification:
+  token: ASDFGHJKY42M
