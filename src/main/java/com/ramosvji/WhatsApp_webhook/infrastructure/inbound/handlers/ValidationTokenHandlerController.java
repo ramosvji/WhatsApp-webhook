@@ -1,6 +1,7 @@
 package com.ramosvji.WhatsApp_webhook.infrastructure.inbound.handlers;
 
 import com.ramosvji.WhatsApp_webhook.application.dto.ExceptionResponse;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -29,7 +31,7 @@ public class ValidationTokenHandlerController {
     private final Logger logger = LoggerFactory.getLogger(ValidationTokenHandlerController.class);
 
     /**
-     * Handles MissingServletRequestParameterException.
+     * Handles MissingServletRequestParameterException and ConstraintViolationException
      *
      * When any of the query parameters requested as mandatory are not provided in the token validation request,
      * an error with HTTP status code 400 will be returned, along with a message specifying which field was not
@@ -38,11 +40,21 @@ public class ValidationTokenHandlerController {
      * @param e the exception to be handled
      * @return a ResponseEntity containing an ExceptionResponse and HTTP status BAD_REQUEST (400)
      */
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ExceptionResponse> handler(final MissingServletRequestParameterException e) {
+    @ExceptionHandler({MissingServletRequestParameterException.class, ConstraintViolationException.class})
+    public ResponseEntity<ExceptionResponse> handler(final Exception e) {
         logger.error(e.getMessage());
 
-        List<String> messages = Collections.singletonList(e.getMessage());
+        List<String> messages;
+
+        if (e instanceof ConstraintViolationException) {
+            ConstraintViolationException violationException = (jakarta.validation.ConstraintViolationException) e;
+            messages = violationException.getConstraintViolations()
+                    .stream()
+                    .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                    .collect(Collectors.toList());
+        } else {
+            messages = Collections.singletonList(e.getMessage());
+        }
         ExceptionResponse exceptionResponse = new ExceptionResponse(messages, LocalDateTime.now());
 
         return new ResponseEntity<>(exceptionResponse,new HttpHeaders(), HttpStatus.BAD_REQUEST);
